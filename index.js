@@ -29,45 +29,76 @@ async function run() {
     const db = client.db("docappoint_db");
     const bookingsCollection = db.collection("bookings");
 
-    // 1. POST: Save appointment data [cite: 63, 65]
+    // ১. POST: Save appointment data
     app.post('/appointments', async (req, res) => {
       const booking = req.body;
       const result = await bookingsCollection.insertOne(booking);
       res.status(201).send({ success: true, insertedId: result.insertedId });
     });
 
-    // 2. GET: Fetch bookings by User Email [cite: 137]
-    app.get('/my-bookings', async (req, res) => {
-      const email = req.query.email;
-      if (!email) {
-        return res.status(400).send({ message: "Email query parameter required" });
+    // ২. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
+    app.get('/appointments', async (req, res) => {
+      try {
+        const { userEmail } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো userEmail ধরা হচ্ছে
+        let query = {};
+        
+        if (userEmail) {
+          query = { userEmail: userEmail }; // মঙ্গোডিবি ফিল্টারিং অবজেক্ট
+        }
+
+        // মঙ্গোডিবি কালেকশন থেকে ডাটা খোঁজা হচ্ছে
+        const bookings = await bookingsCollection.find(query).toArray(); 
+        
+        // ফ্রন্টএন্ডের স্টেট স্ট্রাকচারের সাথে মিল রেখে রেসপন্স পাঠানো হচ্ছে
+        res.send({
+          success: true,
+          message: "Bookings fetched successfully",
+          data: bookings
+        });
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
       }
-      const query = { userEmail: email };
-      const result = await bookingsCollection.find(query).toArray();
-      res.send(result);
     });
 
-    // 3. PUT: Update Booking [cite: 140, 146]
+    // ৩. PUT: Update Booking
     app.put('/appointments/:id', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedData = req.body;
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedData = req.body;
 
-      // সিকিউরিটি গার্ড: ডাক্তার এবং নিজের ইমেইল আপডেট করা যাবে না [cite: 144]
-      delete updatedData.doctorName;
-      delete updatedData.userEmail;
+        // সিকিউরিটি গার্ড: ডাক্তার এবং নিজের ইমেইল আপডেট করা যাবে না
+        delete updatedData.doctorName;
+        delete updatedData.userEmail;
 
-      const updateDoc = { $set: updatedData };
-      const result = await bookingsCollection.updateOne(filter, updateDoc);
-      res.send(result);
+        const updateDoc = { $set: updatedData };
+        const result = await bookingsCollection.updateOne(filter, updateDoc);
+        
+        if (result.modifiedCount > 0 || result.matchedCount > 0) {
+          res.send({ success: true, message: "Updated successfully" });
+        } else {
+          res.status(404).send({ success: false, message: "Booking not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
     });
 
-    // 4. DELETE: Remove Booking [cite: 151, 152]
+    // ৪. DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await bookingsCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await bookingsCollection.deleteOne(query);
+        
+        if (result.deletedCount > 0) {
+          res.send({ success: true, message: "Deleted successfully" });
+        } else {
+          res.status(404).send({ success: false, message: "Booking not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
     });
 
   } finally {
