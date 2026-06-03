@@ -52,7 +52,17 @@ async function run() {
       }
     });
 
-    // ২. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
+    // 👥 নতুন ২. GET: Fetch all users (নেক্সট-অথ ভেরিফিকেশনের জন্য ইউজার ডাটা রিড করা)
+    app.get('/users', async (req, res) => {
+      try {
+        const users = await usersCollection.find({}).toArray();
+        res.send({ success: true, data: users });
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    // ৩. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
     app.post('/appointments', async (req, res) => {
       try {
         const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
@@ -77,7 +87,7 @@ async function run() {
       }
     });
 
-    // ৩. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
+    // ৪. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
     app.get('/appointments', async (req, res) => {
       try {
         const { userEmail } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো userEmail ধরা হচ্ছে
@@ -101,7 +111,7 @@ async function run() {
       }
     });
 
-    // ৪. PUT: Update Booking
+    // ৫. PUT: Update Booking
     app.put('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -125,7 +135,7 @@ async function run() {
       }
     });
 
-    // ৫. DELETE: Remove Booking
+    // ৬. DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
