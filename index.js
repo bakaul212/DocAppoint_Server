@@ -28,8 +28,31 @@ async function run() {
 
     const db = client.db("docappoint_db");
     const bookingsCollection = db.collection("bookings");
+    
+    // 👥 নতুন কালেকশন: ইউজার ডাটা রাখার জন্য ম্যাপ করা হলো
+    const usersCollection = db.collection("users");
 
-    // ১. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
+    // 🆕 ১. POST: Register new user (নতুন ইউজার তৈরির এপিআই)
+    app.post('/users', async (req, res) => {
+      try {
+        const user = req.body;
+        
+        // ইমেইল অলরেডি ডাটাবেজে আছে কি না চেক করা
+        const query = { email: user.email };
+        const existingUser = await usersCollection.findOne(query);
+        
+        if (existingUser) {
+          return res.status(400).send({ success: false, message: "This email address is already registered!" });
+        }
+
+        const result = await usersCollection.insertOne(user);
+        res.status(201).send({ success: true, message: "User registered successfully", insertedId: result.insertedId });
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    // ২. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
     app.post('/appointments', async (req, res) => {
       try {
         const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
@@ -54,7 +77,7 @@ async function run() {
       }
     });
 
-    // ২. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
+    // ৩. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
     app.get('/appointments', async (req, res) => {
       try {
         const { userEmail } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো userEmail ধরা হচ্ছে
@@ -78,7 +101,7 @@ async function run() {
       }
     });
 
-    // ৩. PUT: Update Booking
+    // ৪. PUT: Update Booking
     app.put('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -102,7 +125,7 @@ async function run() {
       }
     });
 
-    // ৪. DELETE: Remove Booking
+    // ৫. DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
