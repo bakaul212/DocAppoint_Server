@@ -29,11 +29,29 @@ async function run() {
     const db = client.db("docappoint_db");
     const bookingsCollection = db.collection("bookings");
 
-    // ১. POST: Save appointment data
+    // ১. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
     app.post('/appointments', async (req, res) => {
-      const booking = req.body;
-      const result = await bookingsCollection.insertOne(booking);
-      res.status(201).send({ success: true, insertedId: result.insertedId });
+      try {
+        const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
+
+        // মঙ্গোডিবিতে সেভ করার আগে আপনার ড্যাশবোর্ডের স্কিমার সাথে মিল রেখে অবজেক্ট তৈরি
+        const bookingData = {
+          doctorId,
+          doctorName,
+          specialty,
+          userName: patientName,      // আপনার ড্যাশবোর্ডের patientName ফিল্ড
+          userEmail: patientEmail,    // GET এপিআই এর ফিল্টারিং এর জন্য userEmail
+          phone,
+          date,
+          timeSlot,
+          createdAt: new Date()
+        };
+
+        const result = await bookingsCollection.insertOne(bookingData);
+        res.status(201).send({ success: true, message: "Appointment booked successfully", insertedId: result.insertedId });
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
     });
 
     // ২. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
