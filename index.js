@@ -8,11 +8,11 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-// 🌍 CORS Config: ভার্সেল এবং লোকালহোস্ট দুই জায়গা থেকেই ডাটা অ্যাক্সেস অ্যালাউ করা হলো
+// 🌍 CORS Config: ভার্সেল, লোকালহোস্ট এবং রেন্ডার ব্যাকএন্ড সব জায়গা থেকেই ডাটা অ্যাক্সেস অ্যালাউ করা হলো
 app.use(cors({
   origin: [
     "http://localhost:3000", 
-    "https://doc-appoint-client-beta.vercel.app" // 👈 আপনার ভার্সেলের লাইভ লিংক
+    "https://doc-appoint-client-beta.vercel.app" // আপনার ভার্সেলের লাইভ লিংক
   ],
   credentials: true
 }));
@@ -39,7 +39,7 @@ async function run() {
     // 👥 কালেকশন: ইউজার ডাটা রাখার জন্য ম্যাপ করা হলো
     const usersCollection = db.collection("users");
 
-    // 🆕 ১. POST: Register new user (নতুন ইউজার তৈরির এপিআই)
+    // 🆕 ১. POST: Register new user (নতুন সাধারণ ইউজার তৈরির এপিআই)
     app.post('/users', async (req, res) => {
       try {
         const user = req.body;
@@ -59,7 +59,36 @@ async function run() {
       }
     });
 
-    // 👥 নতুন ২. GET: Fetch all users (নেক্সট-অথ ভেরিফিকেশনের জন্য ইউজার ডাটা রিড করা)
+    // 🌟 🆕 ২. PUT/UPSERT: Social Login User Synchronization (সোশ্যাল লগইন ইউজার হ্যান্ডলিং এপিআই)
+    // এটি ফ্রন্টএন্ড বা নেক্সট-অথ থেকে যখনই সোশ্যাল লগইন হবে, ইউজার ডাটাবেজে না থাকলে সেভ করবে, থাকলে আপডেট করবে।
+    app.put('/users', async (req, res) => {
+      try {
+        const user = req.body;
+        if (!user?.email) {
+          return res.status(400).send({ success: false, message: "Email is required for synchronization!" });
+        }
+        
+        const filter = { email: user.email };
+        const options = { upsert: true }; // ডাটাবেজে না থাকলে নিজে থেকেই নতুন ডকুমেন্ট তৈরি করবে
+        
+        const updateDoc = {
+          $set: {
+            name: user.name,
+            email: user.email,
+            photoURL: user.photoURL || user.image || "",
+            role: user.role || "patient",
+            lastLogin: new Date()
+          }
+        };
+
+        const result = await usersCollection.updateOne(filter, updateDoc, options);
+        res.send({ success: true, message: "Social user synced successfully with MongoDB", result });
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    // 👥 ৩. GET: Fetch all users (নেক্সট-অথ ভেরিফিকেশনের জন্য ইউজার ডাটা রিড করা)
     app.get('/users', async (req, res) => {
       try {
         const users = await usersCollection.find({}).toArray();
@@ -69,7 +98,7 @@ async function run() {
       }
     });
 
-    // 👤 ৩. PUT: Update User Profile (প্রোফাইলের নাম ও ছবি মঙ্গোডিবিতে সেভ করার এপিআই)
+    // 👤 ৪. PUT: Update User Profile (প্রোফাইলের নাম ও ছবি মঙ্গোডিবিতে সেভ করার এপিআই)
     app.put('/users/profile', async (req, res) => {
       try {
         const { email, name, image } = req.body;
@@ -102,7 +131,7 @@ async function run() {
       }
     });
 
-    // ৪. POST: Save appointment data
+    // ৫. POST: Save appointment data
     app.post('/appointments', async (req, res) => {
       try {
         const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
@@ -126,7 +155,7 @@ async function run() {
       }
     });
 
-    // ৫. GET: Fetch bookings by userEmail
+    // ৬. GET: Fetch bookings by userEmail
     app.get('/appointments', async (req, res) => {
       try {
         const { userEmail } = req.query; 
@@ -148,7 +177,7 @@ async function run() {
       }
     });
 
-    // ৬. PUT: Update Booking
+    // ७. PUT: Update Booking
     app.put('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -171,7 +200,7 @@ async function run() {
       }
     });
 
-    // ७. DELETE: Remove Booking
+    // ⒏ DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
