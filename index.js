@@ -29,7 +29,7 @@ async function run() {
     const db = client.db("docappoint_db");
     const bookingsCollection = db.collection("bookings");
     
-    // 👥 নতুন কালেকশন: ইউজার ডাটা রাখার জন্য ম্যাপ করা হলো
+    // 👥 কালেকশন: ইউজার ডাটা রাখার জন্য ম্যাপ করা হলো
     const usersCollection = db.collection("users");
 
     // 🆕 ১. POST: Register new user (নতুন ইউজার তৈরির এপিআই)
@@ -37,7 +37,7 @@ async function run() {
       try {
         const user = req.body;
         
-        // ইমেইল অলরেডি ডাটাবেজে আছে কি না চেক করা
+        // ইমেইল অলরেডি ডাটাবেজে আছে কি নাチェック করা
         const query = { email: user.email };
         const existingUser = await usersCollection.findOne(query);
         
@@ -62,18 +62,50 @@ async function run() {
       }
     });
 
-    // ৩. POST: Save appointment data (বুকিং পেজের সাথে ফিল্ড সামঞ্জস্য করা হয়েছে)
+    // 👤 ৩. PUT: Update User Profile (প্রোফাইলের নাম ও ছবি মঙ্গোডিবিতে সেভ করার এপিআই)
+    app.put('/users/profile', async (req, res) => {
+      try {
+        const { email, name, image } = req.body;
+
+        if (!email) {
+          return res.status(400).send({ success: false, message: "Email is required to update profile!" });
+        }
+
+        // ইমেইল দিয়ে ইউজার খোঁজার কুয়েরি
+        const filter = { email: email };
+        
+        // ডাটাবেজে যে ফিল্ডগুলো আপডেট হবে
+        const updateDoc = {
+          $set: {
+            name: name,
+            image: image
+          }
+        };
+
+        // মঙ্গোডিবিতে ইউজারের ডাটা আপডেট করা হচ্ছে
+        const result = await usersCollection.updateOne(filter, updateDoc);
+
+        if (result.matchedCount > 0) {
+          res.send({ success: true, message: "Profile updated successfully in MongoDB! 👤🎉" });
+        } else {
+          res.status(404).send({ success: false, message: "User profile not found in database!" });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    // ৪. POST: Save appointment data
     app.post('/appointments', async (req, res) => {
       try {
         const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
 
-        // মঙ্গোডিবিতে সেভ করার আগে আপনার ড্যাশবোর্ডের স্কিমার সাথে মিল রেখে অবজেক্ট তৈরি
         const bookingData = {
           doctorId,
           doctorName,
           specialty,
-          userName: patientName,      // আপনার ড্যাশবোর্ডের patientName ফিল্ড
-          userEmail: patientEmail,    // GET এপিআই এর ফিল্টারিং এর জন্য userEmail
+          userName: patientName,      
+          userEmail: patientEmail,    
           phone,
           date,
           timeSlot,
@@ -87,20 +119,18 @@ async function run() {
       }
     });
 
-    // ৪. GET: Fetch bookings by userEmail (ড্যাশবোর্ড ডাটা লোড করার জন্য ফিক্সড রুট)
+    // ৫. GET: Fetch bookings by userEmail
     app.get('/appointments', async (req, res) => {
       try {
-        const { userEmail } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো userEmail ধরা হচ্ছে
+        const { userEmail } = req.query; 
         let query = {};
         
         if (userEmail) {
-          query = { userEmail: userEmail }; // মঙ্গোডিবি ফিল্টারিং অবজেক্ট
+          query = { userEmail: userEmail }; 
         }
 
-        // মঙ্গোডিবি কালেকশন থেকে ডাটা খোঁজা হচ্ছে
         const bookings = await bookingsCollection.find(query).toArray(); 
         
-        // ফ্রন্টএন্ডের স্টেট স্ট্রাকচারের সাথে মিল রেখে রেসপন্স পাঠানো হচ্ছে
         res.send({
           success: true,
           message: "Bookings fetched successfully",
@@ -111,14 +141,13 @@ async function run() {
       }
     });
 
-    // ৫. PUT: Update Booking
+    // ৬. PUT: Update Booking
     app.put('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedData = req.body;
 
-        // সিকিউরিটি গার্ড: ডাক্তার এবং নিজের ইমেইল আপডেট করা যাবে না
         delete updatedData.doctorName;
         delete updatedData.userEmail;
 
@@ -135,7 +164,7 @@ async function run() {
       }
     });
 
-    // ৬. DELETE: Remove Booking
+    // ৭. DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
