@@ -8,7 +8,14 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+// 🌍 CORS Config: ভার্সেল এবং লোকালহোস্ট দুই জায়গা থেকেই ডাটা অ্যাক্সেস অ্যালাউ করা হলো
+app.use(cors({
+  origin: [
+    "http://localhost:3000", 
+    "https://doc-appoint-client-beta.vercel.app" // 👈 আপনার ভার্সেলের লাইভ লিংক
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
@@ -37,7 +44,7 @@ async function run() {
       try {
         const user = req.body;
         
-        // ইমেইল অলরেডি ডাটাবেজে আছে কি নাチェック করা
+        // ইমেইল অলরেডি ডাটাবেজে আছে কি না চেক করা
         const query = { email: user.email };
         const existingUser = await usersCollection.findOne(query);
         
@@ -71,7 +78,7 @@ async function run() {
           return res.status(400).send({ success: false, message: "Email is required to update profile!" });
         }
 
-        // ইমেইল দিয়ে ইউজার খোঁজার কুয়েরি
+        // ইমেইল দিয়ে ইউজার খোঁজার কুয়েরি
         const filter = { email: email };
         
         // ডাটাবেজে যে ফিল্ডগুলো আপডেট হবে
@@ -164,7 +171,7 @@ async function run() {
       }
     });
 
-    // ৭. DELETE: Remove Booking
+    // ७. DELETE: Remove Booking
     app.delete('/appointments/:id', async (req, res) => {
       try {
         const id = req.params.id;
