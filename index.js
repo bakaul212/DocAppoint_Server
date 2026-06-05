@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-// 🌍 CORS Config: ভার্সেল, লোকালহোস্ট এবং রেন্ডার ব্যাকএন্ড সব জায়গা থেকেই ডাটা অ্যাক্সেস অ্যালাউ করা হলো
+// 🌍 CORS Config: ভার্সেল, লোকালহোস্ট সব জায়গা থেকে সেশন ডাটা অ্যাক্সেস অ্যালাউ করা হলো
 app.use(cors({
   origin: [
     "http://localhost:3000", 
@@ -19,6 +19,10 @@ app.use(cors({
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error("❌ MONGODB_URI is missing in .env file!");
+}
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -27,7 +31,7 @@ const client = new MongoClient(uri, {
   }
 });
 
-// কালেকশনগুলো গ্লোবালি ডিক্লেয়ার করা হলো যাতে সব রাউট এগুলো অ্যাক্সেস করতে পারে
+// কালেকশনগুলো গ্লোবালি ডিক্লেয়ার করা হলো
 let bookingsCollection;
 let usersCollection;
 
@@ -51,34 +55,41 @@ run().catch(console.dir);
 // 👥 USER & AUTHENTICATION ENDPOINTS
 // ==========================================
 
-// 🆕 ১. POST: Register new user
-app.post('/users', async (req, res) => {
+// 🆕 ১. POST: Register new user (ফ্রন্টএন্ডের /auth/register এর সাথে ম্যাচ করা হলো)
+app.post('/auth/register', async (req, res) => {
   try {
-    const user = req.body;
+    const { name, email, image, password } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).send({ success: false, message: "Name, email, and password are required!" });
+    }
     
     // ইমেইল অলরেডি ডাটাবেজে আছে কি না চেক করা
-    const query = { email: user.email };
+    const query = { email: email };
     const existingUser = await usersCollection.findOne(query);
     
     if (existingUser) {
       return res.status(400).send({ success: false, message: "This email address is already registered!" });
     }
 
-    // ডাটাবেজে ইউজার রোল ডিফল্ট "patient" হিসেবে সেট করা
-    if (!user.role) {
-      user.role = "patient";
-    }
+    const newUser = {
+      name,
+      email,
+      image: image || "", // ফ্রন্টএন্ডের photoUrl এখানে image হিসেবে সেভ হবে
+      password,
+      role: "patient",
+      createdAt: new Date()
+    };
 
-    const result = await usersCollection.insertOne(user);
+    const result = await usersCollection.insertOne(newUser);
     res.status(201).send({ success: true, message: "User registered successfully", insertedId: result.insertedId });
   } catch (error) {
     res.status(500).send({ success: false, message: error.message });
   }
 });
 
-// 🔒 🆕 ২. POST: User Login Verification (Next-Auth Credentials Call)
-// এই এন্ডপয়েন্টটি আপনার ফ্রন্টএন্ডের Next-Auth এর authorize ব্লকে fetch এর মাধ্যমে কল করবেন
-app.post('/users/login', async (req, res) => {
+// 🔒 🆕 ২. POST: User Login Verification (ফ্রন্টএন্ডের /auth/login এর সাথে ম্যাচ করা হলো)
+app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -88,11 +99,11 @@ app.post('/users/login', async (req, res) => {
 
     const user = await usersCollection.findOne({ email: email });
 
-    // ইউজার ভেরিফিকেশন এবং পাসওয়ার্ড চেক
+    // ইউজার ভেরিফিকেশন এবং প্লেন পাসওয়ার্ড চেক (Better-Auth সিমুলেশন)
     if (user && user.password === password) {
-      // সিকিউরিটির জন্য রেসপন্স থেকে পাসওয়ার্ড বাদ দিয়ে পাঠানো হচ্ছে
+      // সিকিউরিটির জন্য রেসপন্স থেকে পাসওয়ার্ড বাদ দিয়ে পাঠানো হচ্ছে
       const { password, ...userWithoutPassword } = user;
-      res.send({ success: true, user: userWithoutPassword });
+      res.send({ success: true, message: "Login Successful", user: userWithoutPassword });
     } else {
       res.status(401).send({ success: false, message: "Invalid email or password!" });
     }
@@ -101,7 +112,7 @@ app.post('/users/login', async (req, res) => {
   }
 });
 
-// 🌟 ৩. PUT/UPSERT: Social Login User Synchronization
+// 🌟 ৩. PUT/UPSERT: Social Login User Synchronization (গুগল সাইন-ইন এর জন্য)
 app.put('/users', async (req, res) => {
   try {
     const user = req.body;
@@ -116,7 +127,7 @@ app.put('/users', async (req, res) => {
       $set: {
         name: user.name,
         email: user.email,
-        photoURL: user.photoURL || user.image || "",
+        image: user.image || user.photoURL || "",
         role: user.role || "patient",
         lastLogin: new Date()
       }
@@ -196,7 +207,7 @@ app.post('/appointments', async (req, res) => {
   }
 });
 
-// ૭. GET: Fetch bookings by userEmail
+// ৭. GET: Fetch bookings by userEmail
 app.get('/appointments', async (req, res) => {
   try {
     const { userEmail } = req.query; 
@@ -217,7 +228,7 @@ app.get('/appointments', async (req, res) => {
   }
 });
 
-// ⒏ PUT: Update Booking
+// ৮. PUT: Update Booking
 app.put('/appointments/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -240,7 +251,7 @@ app.put('/appointments/:id', async (req, res) => {
   }
 });
 
-// 🪓 算法. DELETE: Remove Booking
+// ৯. DELETE: Remove Booking
 app.delete('/appointments/:id', async (req, res) => {
   try {
     const id = req.params.id;
