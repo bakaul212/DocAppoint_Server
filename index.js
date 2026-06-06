@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-// 🌍 CORS Config: ভার্সেল, লোকালহোস্ট সব জায়গা থেকে সেশন ডাটা অ্যাক্সেস অ্যালাউ করা হলো
+// 🌍 CORS Config: ভার্সেল, লোকালহোস্ট সব জায়গা থেকে সেশন ডাটা অ্যাক্সেস অ্যালাউ করা হলো
 app.use(cors({
   origin: [
     "http://localhost:3000", 
@@ -55,7 +55,7 @@ run().catch(console.dir);
 // 👥 USER & AUTHENTICATION ENDPOINTS
 // ==========================================
 
-// 🆕 ১. POST: Register new user (ফ্রন্টএন্ডের /auth/register এর সাথে ম্যাচ করা হলো)
+// 🆕 ১. POST: Register new user
 app.post('/auth/register', async (req, res) => {
   try {
     const { name, email, image, password } = req.body;
@@ -75,7 +75,7 @@ app.post('/auth/register', async (req, res) => {
     const newUser = {
       name,
       email,
-      image: image || "", // ফ্রন্টএন্ডের photoUrl এখানে image হিসেবে সেভ হবে
+      image: image || "", 
       password,
       role: "patient",
       createdAt: new Date()
@@ -88,7 +88,7 @@ app.post('/auth/register', async (req, res) => {
   }
 });
 
-// 🔒 🆕 ২. POST: User Login Verification (ফ্রন্টএন্ডের /auth/login এর সাথে ম্যাচ করা হলো)
+// 🔒 🆕 ২. POST: User Login Verification
 app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -99,9 +99,8 @@ app.post('/auth/login', async (req, res) => {
 
     const user = await usersCollection.findOne({ email: email });
 
-    // ইউজার ভেরিফিকেশন এবং প্লেন পাসওয়ার্ড চেক (Better-Auth সিমুলেশন)
+    // ইউজার ভেরিফিকেশন এবং প্লেন পাসওয়ার্ড চেক
     if (user && user.password === password) {
-      // সিকিউরিটির জন্য রেসপন্স থেকে পাসওয়ার্ড বাদ দিয়ে পাঠানো হচ্ছে
       const { password, ...userWithoutPassword } = user;
       res.send({ success: true, message: "Login Successful", user: userWithoutPassword });
     } else {
@@ -112,7 +111,7 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// 🌟 ৩. PUT/UPSERT: Social Login User Synchronization (গুগল সাইন-ইন এর জন্য)
+// 🌟 ৩. PUT/UPSERT: Social Login User Synchronization
 app.put('/users', async (req, res) => {
   try {
     const user = req.body;
@@ -183,20 +182,35 @@ app.put('/users/profile', async (req, res) => {
 // 🩺 APPOINTMENT / BOOKING ENDPOINTS
 // ==========================================
 
-// ৬. POST: Save appointment data
+// 🛠️ ৬. POST: Save appointment data (সংশোধিত রাউট)
 app.post('/appointments', async (req, res) => {
   try {
-    const { doctorId, doctorName, specialty, patientName, patientEmail, phone, date, timeSlot } = req.body;
+    // ফ্রন্টএন্ডের পাঠানো অবজেক্ট কী-গুলো ডিকনস্ট্রাক্ট করা হচ্ছে
+    const { 
+      doctorId, 
+      doctorName, 
+      specialty, 
+      patientName, 
+      patientEmail, 
+      phone, 
+      date,          // ফ্রন্টএন্ডে এটি 'date' হিসেবে যাচ্ছে 
+      appointmentDate, // ব্যাকআপ ট্র্যাকিং হ্যান্ডলার
+      timeSlot,      
+      selectedSlot,  // ফ্রন্টএন্ডে এটি 'selectedSlot' হিসেবে যাচ্ছে 
+      reason 
+    } = req.body;
 
+    // ডাটাবেজে সেভ করার জন্য অবজেক্ট তৈরি (যাতে ফ্রন্টএন্ডের ড্যাশবোর্ড সরাসরি ডাটা রিড করতে পারে)
     const bookingData = {
       doctorId,
       doctorName,
       specialty,
-      userName: patientName,      
+      patientName: patientName || "Anonymous Patient", // ড্যাশবোর্ডের patientName কী (Key) ঠিক করা হলো
       userEmail: patientEmail,    
-      phone,
-      date,
-      timeSlot,
+      phone: phone || "Not Specified",
+      date: date || appointmentDate || "Not Specified", // ড্যাশবোর্ডের date কী (Key) ঠিক করা হলো
+      timeSlot: timeSlot || selectedSlot || "Not Specified",
+      reason: reason || "General Checkup",
       createdAt: new Date()
     };
 
