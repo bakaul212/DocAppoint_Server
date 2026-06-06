@@ -182,10 +182,10 @@ app.put('/users/profile', async (req, res) => {
 // 🩺 APPOINTMENT / BOOKING ENDPOINTS
 // ==========================================
 
-// 🛠️ ৬. POST: Save appointment data (সংশোধিত রাউট)
+// 🩺 অ্যাপয়েন্টমেন্ট ডাটা সেভ করার সংশোধিত রাউট
 app.post('/appointments', async (req, res) => {
   try {
-    // ফ্রন্টএন্ডের পাঠানো অবজেক্ট কী-গুলো ডিকনস্ট্রাক্ট করা হচ্ছে
+    // ফ্রন্টএন্ড থেকে সম্ভাব্য সব রকমের কী-নেম (Key names) এখানে রিসিভ করা হচ্ছে
     const { 
       doctorId, 
       doctorName, 
@@ -193,23 +193,29 @@ app.post('/appointments', async (req, res) => {
       patientName, 
       patientEmail, 
       phone, 
-      date,          // ফ্রন্টএন্ডে এটি 'date' হিসেবে যাচ্ছে 
-      appointmentDate, // ব্যাকআপ ট্র্যাকিং হ্যান্ডলার
-      timeSlot,      
-      selectedSlot,  // ফ্রন্টএন্ডে এটি 'selectedSlot' হিসেবে যাচ্ছে 
+      date,            // যদি সরাসরি date নামে আসে
+      appointmentDate,   // যদি ফ্রন্টএন্ডে appointmentDate নামে থাকে
+      timeSlot,        // যদি সরাসরি timeSlot নামে আসে
+      selectedSlot,    // যদি ফ্রন্টএন্ডে selectedSlot বা slot নামে থাকে
+      slot,
       reason 
     } = req.body;
 
-    // ডাটাবেজে সেভ করার জন্য অবজেক্ট তৈরি (যাতে ফ্রন্টএন্ডের ড্যাশবোর্ড সরাসরি ডাটা রিড করতে পারে)
+    // ডাটাবেজে সেভ করার জন্য চূড়ান্ত অবজেক্ট তৈরি
     const bookingData = {
       doctorId,
       doctorName,
       specialty,
-      patientName: patientName || "Anonymous Patient", // ড্যাশবোর্ডের patientName কী (Key) ঠিক করা হলো
+      patientName: patientName || "Anonymous Patient", 
       userEmail: patientEmail,    
       phone: phone || "Not Specified",
-      date: date || appointmentDate || "Not Specified", // ড্যাশবোর্ডের date কী (Key) ঠিক করা হলো
-      timeSlot: timeSlot || selectedSlot || "Not Specified",
+      
+      // 🛠️ তারিখের জন্য যেকোনো একটি ভ্যালু পেলেই ডাটাবেজের 'date' ফিল্ডে সেভ হবে
+      date: date || appointmentDate || "Not Specified", 
+      
+      // 🛠️ সময়ের জন্য ফ্রন্টএন্ড থেকে পাঠানো যেকোনো ভ্যালু ডাটাবেজের 'timeSlot' ফিল্ডে সেট হবে
+      timeSlot: timeSlot || selectedSlot || slot || "Not Specified",
+      
       reason: reason || "General Checkup",
       createdAt: new Date()
     };
